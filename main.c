@@ -62,13 +62,9 @@ void init()
 
 	std::cout << "first val: " << canvas[0] << std::endl;
 
-	/*for(int h = 0; h < HEIGHT; ++h) {
-		for(int w = 0; w < WIDTH; ++w) {
-			//canvas[h*WIDTH*HEIGHT + w*WIDTH + 0] = 1.0f;
-			canvas[h*HEIGHT + w*WIDTH] = 1.0f;
-			//canvas[h*WIDTH*HEIGHT + w*WIDTH + 2] = 1.0f;
-		}
-	}*/
+	for(int i=0; i < 100*3; i+=3) {
+		canvas[i+1] = 1.0f;
+	}
 }
 
 void destroy() {
