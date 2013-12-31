@@ -3,20 +3,36 @@
 #include <GLFW/glfw3.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <math.h>
+#include <iostream>
+
+#define GLSL(src) "#version 150 core\n" #src
 
 // Shader sources
-const GLchar* vertexSource =
-    "#version 150 core\n"
-    "in vec2 position;"
-    "void main() {"
-    "   gl_Position = vec4(position, 0.0, 1.0);"
-    "}";
-const GLchar* fragmentSource =
-    "#version 150 core\n"
-    "out vec4 outColor;"
-    "void main() {"
-    "   outColor = vec4(1.0, 1.0, 1.0, 1.0);"
-    "}";
+const GLchar* vertexSource = GLSL(
+	in vec2 position;
+	in vec3 color;
+	in vec2 texcoord;
+	out vec3 Color;
+	out vec2 Texcoord;
+
+	void main() {
+		Color = color;
+		Texcoord = texcoord;
+		gl_Position = vec4(position, 0.0, 1.0);
+	}
+);
+
+const GLchar* fragmentSource = GLSL(
+	in vec3 Color;
+	in vec2 Texcoord;
+	out vec4 outColor;
+	uniform sampler2D tex;
+
+	void main() {
+		outColor = texture(tex, Texcoord);
+	}
+);
 
 static void error_callback(int error, const char* description)
 {
@@ -29,10 +45,42 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
 		glfwSetWindowShouldClose(window, GL_TRUE);
 }
 
+#define WIDTH 100
+#define HEIGHT 100
+
+GLfloat * canvas = NULL;
+
+void init()
+{
+	canvas = new GLfloat[WIDTH*HEIGHT*3];
+
+	std::cout << "Canvas: " << canvas << std::endl;
+
+	for(int i=0; i < WIDTH*HEIGHT*3; ++i) {
+		canvas[i] = 0.5f;
+	}
+
+	std::cout << "first val: " << canvas[0] << std::endl;
+
+	/*for(int h = 0; h < HEIGHT; ++h) {
+		for(int w = 0; w < WIDTH; ++w) {
+			//canvas[h*WIDTH*HEIGHT + w*WIDTH + 0] = 1.0f;
+			canvas[h*HEIGHT + w*WIDTH] = 1.0f;
+			//canvas[h*WIDTH*HEIGHT + w*WIDTH + 2] = 1.0f;
+		}
+	}*/
+}
+
+void destroy() {
+	delete [] canvas;
+}
+
 int main(void)
 {
 	GLFWwindow * window;
 	glfwSetErrorCallback(error_callback);
+
+	init();
 
 	glfwInit();
 
@@ -42,8 +90,7 @@ int main(void)
 
 	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
-	window = glfwCreateWindow(640, 480, "Simple example", NULL, NULL);
-
+	window = glfwCreateWindow(800, 600, "Simple example", NULL, NULL);
 	glfwMakeContextCurrent(window);
 
 	glewExperimental = GL_TRUE;
@@ -59,13 +106,27 @@ int main(void)
     glGenBuffers(1, &vbo);
 
     GLfloat vertices[] = {
-        0.0f, 0.5f,
-        0.5f, -0.5f,
-        -0.5f, -0.5f
+        //  Position   Color             Texcoords
+        -0.5f,  0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, // Top-left
+         0.5f,  0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, // Top-right
+         0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, // Bottom-right
+        -0.5f, -0.5f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f  // Bottom-left
     };
 
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    // Create an element array
+    GLuint ebo;
+    glGenBuffers(1, &ebo);
+
+    GLuint elements[] = {
+        0, 1, 2,
+        2, 3, 0
+    };
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(elements), elements, GL_STATIC_DRAW);
 
     // Create and compile the vertex shader
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
@@ -88,8 +149,31 @@ int main(void)
     // Specify the layout of the vertex data
     GLint posAttrib = glGetAttribLocation(shaderProgram, "position");
     glEnableVertexAttribArray(posAttrib);
-    glVertexAttribPointer(posAttrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    glVertexAttribPointer(posAttrib, 2, GL_FLOAT, GL_FALSE, 7 * sizeof(GLfloat), 0);
 
+    GLint colAttrib = glGetAttribLocation(shaderProgram, "color");
+    glEnableVertexAttribArray(colAttrib);
+    glVertexAttribPointer(colAttrib, 3, GL_FLOAT, GL_FALSE, 7 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
+
+    GLint texAttrib = glGetAttribLocation(shaderProgram, "texcoord");
+    glEnableVertexAttribArray(texAttrib);
+    glVertexAttribPointer(texAttrib, 2, GL_FLOAT, GL_FALSE, 7 * sizeof(GLfloat), (void*)(5 * sizeof(GLfloat)));
+
+    // Load texture
+    GLuint tex;
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, WIDTH, HEIGHT, 0, GL_RGB, GL_FLOAT, canvas);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+
+    float color[] = { 1.0f, 0.0f, 0.0f, 1.0f };
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, color);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
 
 	glfwSetKeyCallback(window, key_callback);
 
@@ -98,7 +182,10 @@ int main(void)
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		glDrawArrays(GL_TRIANGLES, 0, 3);
+		glActiveTexture(GL_TEXTURE0);
+  		glBindTexture(GL_TEXTURE_2D, tex);
+
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
@@ -108,11 +195,17 @@ int main(void)
     glDeleteShader(fragmentShader);
     glDeleteShader(vertexShader);
 
+    glDeleteTextures(1, &tex);
+
+    glDeleteBuffers(1, &ebo);
     glDeleteBuffers(1, &vbo);
 
     glDeleteVertexArrays(1, &vao);
 
 	glfwDestroyWindow(window);
 	glfwTerminate();
+
+	destroy();
+
 	exit(EXIT_SUCCESS);
 }
