@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <iostream>
+#include <cstring>
 
 #define GLSL(src) "#version 150 core\n" #src
 
@@ -34,46 +35,92 @@ const GLchar* fragmentSource = GLSL(
 	}
 );
 
-static void error_callback(int error, const char* description)
-{
-	fputs(description, stderr);
-}
-
-static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
-{
-	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-		glfwSetWindowShouldClose(window, GL_TRUE);
-}
+GLuint tex;
 
 #define WIDTH 100
 #define HEIGHT 100
+#define CANVAS_DIMS (WIDTH*HEIGHT*3)
 
-GLfloat * canvas = NULL;
+static GLfloat * canvas = NULL;
+static GLFWwindow * window;
 
-void init()
+static void init()
 {
 	canvas = new GLfloat[WIDTH*HEIGHT*3];
 
 	std::cout << "Canvas: " << canvas << std::endl;
 
-	for(int i=0; i < WIDTH*HEIGHT*3; ++i) {
+	for(int i = 0; i < WIDTH*HEIGHT*3; ++i) {
 		canvas[i] = 0.5f;
 	}
 
 	std::cout << "first val: " << canvas[0] << std::endl;
 
-	for(int i=0; i < 100*3; i+=3) {
+	for(int i = 0; i < 50*3; i+=3) {
 		canvas[i+1] = 1.0f;
 	}
 }
 
-void destroy() {
+static void updateCanvas()
+{
+	glBindTexture(GL_TEXTURE_2D, tex);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, WIDTH, HEIGHT, GL_RGB, GL_FLOAT, canvas);
+}
+
+static void draw(float xpos, float ypos)
+{
+	float color[] = { 1.0f, 1.0f, 1.0f };
+
+	int x = fmin(xpos, WIDTH-1);
+	x = x > 0 ? x : 0;
+	int y = fmin(ypos, HEIGHT-1);
+	y = y > 0 ? y : 0;
+
+	int i = 3*(WIDTH*y + x);
+
+	canvas[i+0] = color[0];
+	canvas[i+1] = color[1];
+	canvas[i+2] = color[2]; 
+
+	updateCanvas();
+}
+
+static void destroy() {
 	delete [] canvas;
+}
+
+static void error_callback(int error, const char* description)
+{
+	fputs(description, stderr);
+}
+
+static void onKey(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+		glfwSetWindowShouldClose(window, GL_TRUE);
+}
+
+static bool isDrawing = false;
+
+static void onMouseButton(GLFWwindow * window, int button, int action, int mods)
+{
+	isDrawing = (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS);
+	if(isDrawing)
+	{
+		double xpos, ypos;
+		glfwGetCursorPos(window, &xpos, &ypos);
+		draw(xpos, ypos);
+	}
+}
+
+static void onMouseMove(GLFWwindow * window, double xpos, double ypos)
+{
+	if(isDrawing)
+		draw(xpos, ypos);
 }
 
 int main(void)
 {
-	GLFWwindow * window;
 	glfwSetErrorCallback(error_callback);
 
 	init();
@@ -156,7 +203,6 @@ int main(void)
     glVertexAttribPointer(texAttrib, 2, GL_FLOAT, GL_FALSE, 7 * sizeof(GLfloat), (void*)(5 * sizeof(GLfloat)));
 
     // Load texture
-    GLuint tex;
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, WIDTH, HEIGHT, 0, GL_RGB, GL_FLOAT, canvas);
@@ -169,17 +215,19 @@ int main(void)
     float color[] = { 1.0f, 0.0f, 0.0f, 1.0f };
 	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, color);
 
-	glBindTexture(GL_TEXTURE_2D, 0);
+	//glBindTexture(GL_TEXTURE_2D, 0);
 
-	glfwSetKeyCallback(window, key_callback);
+	glfwSetKeyCallback(window, onKey);
+	glfwSetMouseButtonCallback(window, onMouseButton);
+	glfwSetCursorPosCallback(window, onMouseMove);
 
 	while(!glfwWindowShouldClose(window))
 	{
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		glActiveTexture(GL_TEXTURE0);
-  		glBindTexture(GL_TEXTURE_2D, tex);
+		//glActiveTexture(GL_TEXTURE0);
+  		//glBindTexture(GL_TEXTURE_2D, tex);
 
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
