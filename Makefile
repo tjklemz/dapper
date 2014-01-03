@@ -12,7 +12,7 @@
 
 BINARY = dapper
 
-CC = cc -Wall -Os
+CC = cc -std=c99 -Wall -Os
 
 ifdef DEBUG
 	CC += -g
@@ -44,7 +44,7 @@ SRC = \
   main.c \
   $(NULL)
 
-COMMON_LIBS = -lm
+COMMON_LIBS = -lm -lglfw3 -lGLEW
 
 ifeq ($(PLAT),win32)
 	OS_LIBS = -luser32 -lgdi32 -lkernel32
@@ -52,7 +52,7 @@ ifeq ($(PLAT),win32)
 endif
 
 ifeq ($(PLAT),mac)
-	OS_LIBS	= -framework Cocoa
+	OS_LIBS	= -framework Cocoa -framework IOKit -framework QuartzCore
 	GL_LIBS = -framework OpenGL
 else ifeq ($(PLAT),nix)
 	OS_LIBS = -lX11

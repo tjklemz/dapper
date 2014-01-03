@@ -4,8 +4,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
-#include <iostream>
-#include <cstring>
+#include <string.h>
+#include <stdbool.h>
 
 #define GLSL(src) "#version 150 core\n" #src
 
@@ -48,18 +48,10 @@ static GLFWwindow * window;
 
 static void init()
 {
-	canvas = new GLfloat[WIDTH*HEIGHT*3];
-
-	std::cout << "Canvas: " << canvas << std::endl;
+	canvas = malloc(sizeof(GLfloat)*WIDTH*HEIGHT*3);
 
 	for(int i = 0; i < WIDTH*HEIGHT*3; ++i) {
 		canvas[i] = 0.5f;
-	}
-
-	std::cout << "first val: " << canvas[0] << std::endl;
-
-	for(int i = 0; i < 50*3; i+=3) {
-		canvas[i+1] = 1.0f;
 	}
 }
 
@@ -108,7 +100,7 @@ static void draw(float xpos, float ypos)
 }
 
 static void destroy() {
-	delete [] canvas;
+	free(canvas);
 }
 
 static void error_callback(int error, const char* description)
@@ -154,6 +146,7 @@ int main(void)
 
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
