@@ -11,6 +11,8 @@
 
 // Shader sources
 const GLchar* vertexSource = GLSL(
+	uniform mat4 projection;
+	uniform mat4 transform;
 	in vec2 position;
 	in vec3 color;
 	in vec2 texcoord;
@@ -20,7 +22,7 @@ const GLchar* vertexSource = GLSL(
 	void main() {
 		Color = color;
 		Texcoord = texcoord;
-		gl_Position = vec4(position, 0.0, 1.0);
+		gl_Position = projection*transform*vec4(position, 0.0, 1.0);
 	}
 );
 
@@ -37,8 +39,8 @@ const GLchar* fragmentSource = GLSL(
 
 GLuint tex;
 
-#define WIDTH 100
-#define HEIGHT 100
+#define WIDTH 400
+#define HEIGHT 300
 #define CANVAS_DIMS (WIDTH*HEIGHT*3)
 
 static GLfloat * canvas = NULL;
@@ -67,22 +69,42 @@ static void updateCanvas()
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, WIDTH, HEIGHT, GL_RGB, GL_FLOAT, canvas);
 }
 
+static bool inCanvas(float xpos, float ypos)
+{
+	/*int windowWidth, windowHeight;
+	glfwGetWindowSize(window, &windowWidth, &windowHeight);
+	float x1 = 0.25*windowWidth;
+	float x2 = 0.75*windowWidth;
+	float y1 = 0.25*windowHeight;
+	float y2 = 0.25*windowHeight;*/
+	return true;
+}
+
 static void draw(float xpos, float ypos)
 {
-	float color[] = { 1.0f, 1.0f, 1.0f };
+	if(inCanvas(xpos, ypos))
+	{
+		float color[] = { 1.0f, 1.0f, 1.0f };
 
-	int x = fmin(xpos, WIDTH-1);
-	x = x > 0 ? x : 0;
-	int y = fmin(ypos, HEIGHT-1);
-	y = y > 0 ? y : 0;
+		int windowWidth, windowHeight;
+		glfwGetWindowSize(window, &windowWidth, &windowHeight);
 
-	int i = 3*(WIDTH*y + x);
+		int canvasX = xpos;
+		int canvasY = ypos;
 
-	canvas[i+0] = color[0];
-	canvas[i+1] = color[1];
-	canvas[i+2] = color[2]; 
+		int x = canvasX < WIDTH ? canvasX : WIDTH-1;
+		x = x > 0 ? x : 0;
+		int y = canvasY < HEIGHT ? canvasY : HEIGHT-1;
+		y = y > 0 ? y : 0;
 
-	updateCanvas();
+		int i = 3*(WIDTH*y + x);
+
+		canvas[i+0] = color[0];
+		canvas[i+1] = color[1];
+		canvas[i+2] = color[2]; 
+
+		updateCanvas();
+	}
 }
 
 static void destroy() {
@@ -119,6 +141,9 @@ static void onMouseMove(GLFWwindow * window, double xpos, double ypos)
 		draw(xpos, ypos);
 }
 
+GLuint projectionLoc, transformLoc;
+static GLfloat matrix[16] = {1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1};
+
 int main(void)
 {
 	glfwSetErrorCallback(error_callback);
@@ -150,10 +175,10 @@ int main(void)
 
     GLfloat vertices[] = {
         //  Position   Color             Texcoords
-        -0.5f,  0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, // Top-left
-         0.5f,  0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, // Top-right
-         0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, // Bottom-right
-        -0.5f, -0.5f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f  // Bottom-left
+        0,  0, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, // Top-left
+        WIDTH, 0, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, // Top-right
+        WIDTH, HEIGHT, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, // Bottom-right
+        0, HEIGHT, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f  // Bottom-left
     };
 
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
@@ -214,6 +239,26 @@ int main(void)
 
     float color[] = { 1.0f, 0.0f, 0.0f, 1.0f };
 	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, color);
+
+	projectionLoc = glGetUniformLocation(shaderProgram, "projection");
+    {
+        GLfloat left = 0.0f;
+        GLfloat right = 800; //(float)(800) / (float)(600);
+        GLfloat bottom = 600; //0.0f;
+        GLfloat top = 0.0f; //1.0f;
+        GLfloat zNear = -1.0f;
+        GLfloat zFar = 1.0f;
+        GLfloat ortho[16] = {2.0f / (right-left), 0, 0, 0,
+                            0, 2.0f / (top-bottom), 0, 0,
+                            0, 0, -2.0f / (zFar - zNear), 0,
+                            -(right+left)/(right-left), -(top+bottom)/(top-bottom), -(zFar+zNear)/(zFar-zNear), 1};
+        glUniformMatrix4fv(projectionLoc, 1, false, ortho);
+    }
+
+    transformLoc = glGetUniformLocation(shaderProgram, "transform");
+    //matrix[12] = ((float)(800) / (float)(600)) / 2.0;
+    //matrix[13] = 0.5;
+    glUniformMatrix4fv(transformLoc, 1, false, matrix);
 
 	//glBindTexture(GL_TEXTURE_2D, 0);
 
