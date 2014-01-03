@@ -39,27 +39,41 @@ const GLchar* fragmentSource = GLSL(
 
 GLuint tex;
 
-#define WIDTH 400
-#define HEIGHT 300
+#define WIDTH 1200
+#define HEIGHT 800
 #define CANVAS_DIMS (WIDTH*HEIGHT*3)
 
 static GLfloat * canvas = NULL;
 static GLFWwindow * window;
+GLuint projectionLoc, transformLoc;
+static float scaleAmt = 0.8*800/WIDTH;
+static GLfloat matrix[16] = {1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1};
+
+static void scale(GLfloat * matrix, float scale)
+{
+	matrix[0] = scale;
+	matrix[5] = scale;
+	matrix[10] = scale;
+}
+
+static void move(GLfloat * matrix, float x, float y)
+{
+	matrix[12] = x;
+	matrix[13] = y;
+}
+
+static void identity(GLfloat * matrix)
+{
+	GLfloat I[16] = {1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1};
+	memcpy(matrix, I, sizeof(GLfloat)*16);
+}
 
 static void init()
 {
 	canvas = new GLfloat[WIDTH*HEIGHT*3];
 
-	std::cout << "Canvas: " << canvas << std::endl;
-
 	for(int i = 0; i < WIDTH*HEIGHT*3; ++i) {
 		canvas[i] = 0.5f;
-	}
-
-	std::cout << "first val: " << canvas[0] << std::endl;
-
-	for(int i = 0; i < 50*3; i+=3) {
-		canvas[i+1] = 1.0f;
 	}
 }
 
@@ -89,19 +103,31 @@ static void draw(float xpos, float ypos)
 		int windowWidth, windowHeight;
 		glfwGetWindowSize(window, &windowWidth, &windowHeight);
 
-		int canvasX = xpos;
-		int canvasY = ypos;
+		float s = 1.0/scaleAmt;//1/(0.8*800/WIDTH);
+
+		float canvasX = xpos*s;
+		float canvasY = ypos*s;
+
+		//std::cout << "Canvas x: " << canvasX << " Canvas y: " << canvasY << std::endl;
 
 		int x = canvasX < WIDTH ? canvasX : WIDTH-1;
 		x = x > 0 ? x : 0;
 		int y = canvasY < HEIGHT ? canvasY : HEIGHT-1;
 		y = y > 0 ? y : 0;
 
+		//std::cout << "x: " << x << " y: " << y << std::endl;
+
 		int i = 3*(WIDTH*y + x);
+
+		//std::cout << "i: " << i << std::endl;
+
+		//std::cout << "Before: " << canvas[i] << " " << canvas[i+1] << " " << canvas[i+2] << std::endl;
 
 		canvas[i+0] = color[0];
 		canvas[i+1] = color[1];
-		canvas[i+2] = color[2]; 
+		canvas[i+2] = color[2];
+
+		//std::cout << "After: " << canvas[i] << " " << canvas[i+1] << " " << canvas[i+2] << std::endl;
 
 		updateCanvas();
 	}
@@ -132,6 +158,12 @@ static void onMouseButton(GLFWwindow * window, int button, int action, int mods)
 		double xpos, ypos;
 		glfwGetCursorPos(window, &xpos, &ypos);
 		draw(xpos, ypos);
+	} 
+	else if(button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE)
+	{
+		scaleAmt *= 1.2;
+		scale(matrix, scaleAmt);
+		glUniformMatrix4fv(transformLoc, 1, false, matrix);
 	}
 }
 
@@ -140,9 +172,6 @@ static void onMouseMove(GLFWwindow * window, double xpos, double ypos)
 	if(isDrawing)
 		draw(xpos, ypos);
 }
-
-GLuint projectionLoc, transformLoc;
-static GLfloat matrix[16] = {1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1};
 
 int main(void)
 {
@@ -256,8 +285,9 @@ int main(void)
     }
 
     transformLoc = glGetUniformLocation(shaderProgram, "transform");
-    //matrix[12] = ((float)(800) / (float)(600)) / 2.0;
-    //matrix[13] = 0.5;
+    
+    scale(matrix, scaleAmt);
+
     glUniformMatrix4fv(transformLoc, 1, false, matrix);
 
 	//glBindTexture(GL_TEXTURE_2D, 0);
