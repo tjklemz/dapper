@@ -55,7 +55,7 @@ ifeq ($(PLAT),mac)
 	OS_LIBS	= -framework Cocoa -framework IOKit -framework QuartzCore
 	GL_LIBS = -framework OpenGL
 else ifeq ($(PLAT),nix)
-	OS_LIBS = -lX11
+	OS_LIBS = -lX11 -lXrandr -lXi
 	GL_LIBS = -lGL -lGLU
 endif
 
