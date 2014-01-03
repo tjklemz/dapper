@@ -77,10 +77,16 @@ static void init()
 	}
 }
 
-static void updateCanvas()
+static void updateCanvasPartial(int xOffset, int yOffset, int w, int h)
 {
+	int i = 3*(WIDTH*yOffset + xOffset);
 	glBindTexture(GL_TEXTURE_2D, tex);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, WIDTH, HEIGHT, GL_RGB, GL_FLOAT, canvas);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, xOffset, yOffset, w, h, GL_RGB, GL_FLOAT, &canvas[i]);
+}
+
+static void updateCanvasFull()
+{
+	updateCanvasPartial(0, 0, WIDTH, HEIGHT);
 }
 
 static bool inCanvas(float xpos, float ypos)
@@ -100,36 +106,23 @@ static void draw(float xpos, float ypos)
 	{
 		float color[] = { 1.0f, 1.0f, 1.0f };
 
-		int windowWidth, windowHeight;
-		glfwGetWindowSize(window, &windowWidth, &windowHeight);
-
-		float s = 1.0/scaleAmt;//1/(0.8*800/WIDTH);
+		float s = 1.0/scaleAmt;
 
 		float canvasX = xpos*s;
 		float canvasY = ypos*s;
-
-		//std::cout << "Canvas x: " << canvasX << " Canvas y: " << canvasY << std::endl;
 
 		int x = canvasX < WIDTH ? canvasX : WIDTH-1;
 		x = x > 0 ? x : 0;
 		int y = canvasY < HEIGHT ? canvasY : HEIGHT-1;
 		y = y > 0 ? y : 0;
 
-		//std::cout << "x: " << x << " y: " << y << std::endl;
-
 		int i = 3*(WIDTH*y + x);
-
-		//std::cout << "i: " << i << std::endl;
-
-		//std::cout << "Before: " << canvas[i] << " " << canvas[i+1] << " " << canvas[i+2] << std::endl;
 
 		canvas[i+0] = color[0];
 		canvas[i+1] = color[1];
 		canvas[i+2] = color[2];
 
-		//std::cout << "After: " << canvas[i] << " " << canvas[i+1] << " " << canvas[i+2] << std::endl;
-
-		updateCanvas();
+		updateCanvasPartial(x, y, 1, 1);
 	}
 }
 
