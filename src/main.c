@@ -39,14 +39,23 @@ const GLchar* fragmentSource = GLSL(
 
 GLuint tex;
 
-#define WIDTH 1200
+#define WINDOW_WIDTH 800
+#define WINDOW_HEIGHT 600
+
+#define WIDTH 800
 #define HEIGHT 800
 #define CANVAS_DIMS (WIDTH*HEIGHT*3)
 
+typedef struct {
+	float x, y, width, height;
+} Rect;
+
+static Rect canvasRect = {0, 0, WIDTH, HEIGHT};
+
 static GLfloat * canvas = NULL;
 static GLFWwindow * window;
-GLuint projectionLoc, transformLoc;
-static float scaleAmt = 0.8*800/WIDTH;
+static GLuint projectionLoc, transformLoc;
+static float scaleAmt = 1.0f;
 static GLfloat matrix[16] = {1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1};
 
 static void scale(GLfloat * matrix, float scale)
@@ -75,6 +84,12 @@ static void init()
 	for(int i = 0; i < WIDTH*HEIGHT*3; ++i) {
 		canvas[i] = 0.5f;
 	}
+
+	//setup scale amount
+	float ratioWidth = WINDOW_WIDTH > WIDTH ? (float)WIDTH/WINDOW_WIDTH : (float)WINDOW_WIDTH/WIDTH;
+	float ratioHeight = WINDOW_HEIGHT > HEIGHT ? (float)HEIGHT/WINDOW_HEIGHT : (float)WINDOW_HEIGHT/HEIGHT;
+	float ratio = ratioHeight < ratioWidth ? ratioHeight : ratioWidth;
+	scaleAmt = 0.8*ratio;
 }
 
 static void updateCanvasPartial(int xOffset, int yOffset, int w, int h)
@@ -89,41 +104,51 @@ static void updateCanvasFull()
 	updateCanvasPartial(0, 0, WIDTH, HEIGHT);
 }
 
+static void screenToCanvas(float screenX, float screenY, float * canvasX, float * canvasY)
+{
+	float s = 1.0/scaleAmt;
+	*canvasX = s*(screenX - canvasRect.x);
+	*canvasY = s*(screenY - canvasRect.y);
+}
+
 static bool inCanvas(float xpos, float ypos)
 {
-	/*int windowWidth, windowHeight;
-	glfwGetWindowSize(window, &windowWidth, &windowHeight);
-	float x1 = 0.25*windowWidth;
-	float x2 = 0.75*windowWidth;
-	float y1 = 0.25*windowHeight;
-	float y2 = 0.25*windowHeight;*/
-	return true;
+	screenToCanvas(xpos, ypos, &xpos, &ypos);
+	return xpos > 0 && xpos < WIDTH && ypos > 0 && ypos < HEIGHT;
 }
 
 static void draw(float xpos, float ypos)
 {
-	if(inCanvas(xpos, ypos))
-	{
-		float color[] = { 1.0f, 1.0f, 1.0f };
+	float color[] = { 1.0f, 1.0f, 1.0f };
 
-		float s = 1.0/scaleAmt;
+	float canvasX, canvasY;
+	screenToCanvas(xpos, ypos, &canvasX, &canvasY);
 
-		float canvasX = xpos*s;
-		float canvasY = ypos*s;
+	int x = canvasX < WIDTH ? canvasX : WIDTH-1;
+	x = x > 0 ? x : 0;
+	int y = canvasY < HEIGHT ? canvasY : HEIGHT-1;
+	y = y > 0 ? y : 0;
 
-		int x = canvasX < WIDTH ? canvasX : WIDTH-1;
-		x = x > 0 ? x : 0;
-		int y = canvasY < HEIGHT ? canvasY : HEIGHT-1;
-		y = y > 0 ? y : 0;
+	int i = 3*(WIDTH*y + x);
 
-		int i = 3*(WIDTH*y + x);
+	canvas[i+0] = color[0];
+	canvas[i+1] = color[1];
+	canvas[i+2] = color[2];
 
-		canvas[i+0] = color[0];
-		canvas[i+1] = color[1];
-		canvas[i+2] = color[2];
+	updateCanvasPartial(x, y, 1, 1);
+}
 
-		updateCanvasPartial(x, y, 1, 1);
-	}
+static float firstX = -1.0f;
+static float firstY = -1.0f;
+
+static void moveCanvas(float xpos, float ypos)
+{
+	canvasRect.x += xpos - firstX;
+	canvasRect.y += ypos - firstY;
+	firstX = xpos;
+	firstY = ypos;
+	move(matrix, canvasRect.x, canvasRect.y);
+	glUniformMatrix4fv(transformLoc, 1, false, matrix);
 }
 
 static void destroy() {
@@ -135,22 +160,35 @@ static void error_callback(int error, const char* description)
 	fputs(description, stderr);
 }
 
+static bool isDrawing = false;
+static bool hasMoveToolSelected = false;
+static bool isMoving = false;
+
 static void onKey(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+	if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, GL_TRUE);
+	else if(key == GLFW_KEY_SPACE)
+		hasMoveToolSelected = (action != GLFW_RELEASE);
 }
-
-static bool isDrawing = false;
 
 static void onMouseButton(GLFWwindow * window, int button, int action, int mods)
 {
-	isDrawing = (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS);
-	if(isDrawing)
-	{
+	isDrawing = isMoving = false;
+	if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
+	{		
 		double xpos, ypos;
 		glfwGetCursorPos(window, &xpos, &ypos);
-		draw(xpos, ypos);
+		firstX = xpos;
+		firstY = ypos;
+
+		isMoving = hasMoveToolSelected;
+		if(!isMoving)
+		{
+			isDrawing = inCanvas(xpos, ypos);
+			if(isDrawing)
+				draw(xpos, ypos);
+		}
 	} 
 	else if(button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE)
 	{
@@ -164,6 +202,8 @@ static void onMouseMove(GLFWwindow * window, double xpos, double ypos)
 {
 	if(isDrawing)
 		draw(xpos, ypos);
+	else if(isMoving)
+		moveCanvas(xpos, ypos);
 }
 
 int main(void)
@@ -181,7 +221,7 @@ int main(void)
 
 	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
-	window = glfwCreateWindow(800, 600, "Simple example", NULL, NULL);
+	window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Drawing App", NULL, NULL);
 	glfwMakeContextCurrent(window);
 
 	glewExperimental = GL_TRUE;
@@ -266,9 +306,9 @@ int main(void)
 	projectionLoc = glGetUniformLocation(shaderProgram, "projection");
     {
         GLfloat left = 0.0f;
-        GLfloat right = 800; //(float)(800) / (float)(600);
-        GLfloat bottom = 600; //0.0f;
-        GLfloat top = 0.0f; //1.0f;
+        GLfloat right = WINDOW_WIDTH;
+        GLfloat bottom = WINDOW_HEIGHT;
+        GLfloat top = 0.0f;
         GLfloat zNear = -1.0f;
         GLfloat zFar = 1.0f;
         GLfloat ortho[16] = {2.0f / (right-left), 0, 0, 0,
@@ -279,9 +319,7 @@ int main(void)
     }
 
     transformLoc = glGetUniformLocation(shaderProgram, "transform");
-    
     scale(matrix, scaleAmt);
-
     glUniformMatrix4fv(transformLoc, 1, false, matrix);
 
 	//glBindTexture(GL_TEXTURE_2D, 0);
