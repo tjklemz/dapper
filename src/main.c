@@ -42,8 +42,8 @@ GLuint tex;
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
 
-#define WIDTH 800
-#define HEIGHT 800
+#define WIDTH 1200
+#define HEIGHT 1000
 #define R_COMP 0
 #define G_COMP 1
 #define B_COMP 2
@@ -72,24 +72,6 @@ struct Color {
 };
 typedef struct Color Color;
 
-static Rect makeRect(Point p1, Point p2)
-{
-	float x1 = p1.x < p2.x ? p1.x : p2.x;
-	float y1 = p1.y < p2.y ? p1.y : p2.y;
-	float x2 = p1.x > p2.x ? p1.x : p2.x;
-	float y2 = p1.y > p2.y ? p1.y : p2.y;
-	float w = x2-x1;
-	w = w > 1 ? w : 1;
-	float h = y2-y1;
-	h = h > 1 ? h : 1;
-	return (Rect){x1, y1, w, h};
-}
-
-static inline int canvasIndex(float x, float y)
-{
-	return COLOR_COMPS*(WIDTH*y + x);
-}
-
 static Rect canvasRect = {0, 0, WIDTH, HEIGHT};
 
 static GLfloat * canvas = NULL;
@@ -103,6 +85,52 @@ static bool isDrawing = false;
 static bool hasMoveToolSelected = false;
 static bool isMoving = false;
 
+
+static Rect makeRect(Point p1, Point p2)
+{
+	float x1 = fmin(p1.x, p2.x);
+	float y1 = fmin(p1.y, p2.y);
+	float x2 = fmax(p1.x, p2.x);
+	float y2 = fmax(p1.y, p2.y);
+	float w = fabs(x2-x1);
+	w = fmax(w, 1);
+	float h = fabs(y2-y1);
+	h = fmax(h, 1);
+	return (Rect){x1, y1, w, h};
+}
+
+static inline float nextPow2(float val)
+{
+	return fmax(2, powf(2, ceilf(log2f(val))));
+}
+
+static Rect makeRegion(Point p1, Point p2)
+{
+	Rect r = makeRect(p1, p2);
+	float val = fmax(r.size.width, r.size.height);
+	r.size.height = r.size.width = nextPow2(val);
+	return r;
+}
+
+static Rect makeRegionBounded(Point p1, Point p2)
+{
+	Rect r = makeRegion(p1, p2);
+
+	float extra_w = (r.size.width + r.origin.x) - canvasRect.size.width;
+	extra_w = fmax(extra_w, 0);
+	float extra_h = (r.size.height + r.origin.y) - canvasRect.size.height;
+	extra_h = fmax(extra_h, 0);
+
+	r.origin.x -= extra_w;
+	r.origin.y -= extra_h;
+
+	return r;
+}
+
+static inline int canvasIndex(float x, float y)
+{
+	return COLOR_COMPS*(WIDTH*y + x);
+}
 
 static void scale(GLfloat * matrix, float scale)
 {
@@ -138,24 +166,20 @@ static void init()
 	scaleAmt = 0.8*ratio;
 }
 
-/*static void updateCanvasPartial(Rect rect)
+static void updateCanvas(Rect r)
 {
-	int i = canvasIndex(rect.origin.x, rect.origin.y);
+	int i = canvasIndex(r.origin.x, r.origin.y);
 	glBindTexture(GL_TEXTURE_2D, tex);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, rect.origin.x, rect.origin.y, rect.size.width, rect.size.height, GL_RGB, GL_FLOAT, &canvas[i]);
-}*/
-
-static void updateCanvas()
-{
-	glBindTexture(GL_TEXTURE_2D, tex);
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, canvasRect.size.width, canvasRect.size.height, GL_RGB, GL_FLOAT, canvas);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+	glPixelStorei(GL_UNPACK_ROW_LENGTH, canvasRect.size.width);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, r.origin.x, r.origin.y, r.size.width, r.size.height, GL_RGB, GL_FLOAT, &canvas[i]);
 }
 
 static Point screenToCanvas(Point screenPoint)
 {
-	float s = 1.0/scaleAmt;
-	float canvasX = s*(screenPoint.x - canvasRect.origin.x);
-	float canvasY = s*(screenPoint.y - canvasRect.origin.y);
+	float s = 1.0f/scaleAmt;
+	float canvasX = (int)(s*(screenPoint.x - canvasRect.origin.x));
+	float canvasY = (int)(s*(screenPoint.y - canvasRect.origin.y));
 	return (Point){canvasX, canvasY};
 }
 
@@ -206,10 +230,13 @@ static void draw(float xpos, float ypos)
 	Point oldPoint = screenToCanvasBounded((Point){firstDrawX, firstDrawY});
 	Point newPoint = screenToCanvasBounded((Point){xpos, ypos});
 
-	Rect dirtyRegion = makeRect(oldPoint, newPoint);
+	Rect dirtyRegion = makeRegionBounded(oldPoint, newPoint);
 	placeRect(dirtyRegion, color);
-	updateCanvas();
-	//updateCanvasPartial((Rect){0, 0, WIDTH, HEIGHT});
+	//placePoint(newPoint, color);
+	updateCanvas(dirtyRegion);
+	//printf("dirtyRegion: %f %f %f %f\n", dirtyRegion.origin.x, dirtyRegion.origin.y, dirtyRegion.size.width, dirtyRegion.size.height);
+	//updateCanvas((Rect){newPoint.x, newPoint.y, 10, 10});
+	//updateCanvas((Rect){0, 0, WIDTH, HEIGHT});
 
 	firstDrawX = xpos;
 	firstDrawY = ypos;
@@ -397,7 +424,7 @@ int main(void)
     // Load texture
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, WIDTH, HEIGHT, 0, GL_RGB, GL_FLOAT, canvas);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, WIDTH, HEIGHT, 0, GL_RGB, GL_FLOAT, canvas);
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -426,7 +453,7 @@ int main(void)
     scale(matrix, scaleAmt);
     glUniformMatrix4fv(transformLoc, 1, false, matrix);
 
-	//glBindTexture(GL_TEXTURE_2D, 0);
+	glBindTexture(GL_TEXTURE_2D, 0);
 
 	glfwSetKeyCallback(window, onKey);
 	glfwSetMouseButtonCallback(window, onMouseButton);
@@ -437,8 +464,8 @@ int main(void)
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		//glActiveTexture(GL_TEXTURE0);
-  		//glBindTexture(GL_TEXTURE_2D, tex);
+		glActiveTexture(GL_TEXTURE0);
+  		glBindTexture(GL_TEXTURE_2D, tex);
 
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
