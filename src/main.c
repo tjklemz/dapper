@@ -42,8 +42,8 @@ GLuint tex;
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
 
-#define WIDTH 1200
-#define HEIGHT 1000
+#define WIDTH 6000
+#define HEIGHT 4000
 #define R_COMP 0
 #define G_COMP 1
 #define B_COMP 2
@@ -129,7 +129,9 @@ static Rect makeRegionBounded(Point p1, Point p2)
 
 static inline int canvasIndex(float x, float y)
 {
-	return COLOR_COMPS*(WIDTH*y + x);
+    int i = (int)(COLOR_COMPS)*(int)(WIDTH*y + x);
+    //printf("(canvas index) x: %f y: %f i: %d\n", x, y, i);
+	return i;
 }
 
 static void scale(GLfloat * matrix, float scale)
@@ -177,7 +179,7 @@ static void updateCanvas(Rect r)
 
 static Point screenToCanvas(Point screenPoint)
 {
-	float s = 1.0f/scaleAmt;
+	double s = 1.0/scaleAmt;
 	float canvasX = (int)(s*(screenPoint.x - canvasRect.origin.x));
 	float canvasY = (int)(s*(screenPoint.y - canvasRect.origin.y));
 	return (Point){canvasX, canvasY};
@@ -231,8 +233,8 @@ static void draw(float xpos, float ypos)
 	Point newPoint = screenToCanvasBounded((Point){xpos, ypos});
 
 	Rect dirtyRegion = makeRegionBounded(oldPoint, newPoint);
-	placeRect(dirtyRegion, color);
-	//placePoint(newPoint, color);
+	//placeRect(dirtyRegion, color);
+	placePoint(newPoint, color);
 	updateCanvas(dirtyRegion);
 	//printf("dirtyRegion: %f %f %f %f\n", dirtyRegion.origin.x, dirtyRegion.origin.y, dirtyRegion.size.width, dirtyRegion.size.height);
 	//updateCanvas((Rect){newPoint.x, newPoint.y, 10, 10});
