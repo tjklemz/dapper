@@ -11,30 +11,30 @@
 
 // Shader sources
 const GLchar* vertexSource = GLSL(
-	uniform mat4 projection;
-	uniform mat4 transform;
-	in vec2 position;
-	in vec3 color;
-	in vec2 texcoord;
-	out vec3 Color;
-	out vec2 Texcoord;
+    uniform mat4 projection;
+    uniform mat4 transform;
+    in vec2 position;
+    in vec3 color;
+    in vec2 texcoord;
+    out vec3 Color;
+    out vec2 Texcoord;
 
-	void main() {
-		Color = color;
-		Texcoord = texcoord;
-		gl_Position = projection*transform*vec4(position, 0.0, 1.0);
-	}
+    void main() {
+        Color = color;
+        Texcoord = texcoord;
+        gl_Position = projection*transform*vec4(position, 0.0, 1.0);
+    }
 );
 
 const GLchar* fragmentSource = GLSL(
-	in vec3 Color;
-	in vec2 Texcoord;
-	out vec4 outColor;
-	uniform sampler2D tex;
+    in vec3 Color;
+    in vec2 Texcoord;
+    out vec4 outColor;
+    uniform sampler2D tex;
 
-	void main() {
-		outColor = texture(tex, Texcoord);
-	}
+    void main() {
+        outColor = texture(tex, Texcoord);
+    }
 );
 
 GLuint tex;
@@ -52,23 +52,23 @@ GLuint tex;
 #define CANVAS_DIMS (WIDTH*HEIGHT*COLOR_COMPS)
 
 struct Point {
-	float x, y;
+    float x, y;
 };
 typedef struct Point Point;
 
 struct Size {
-	float width, height;
+    float width, height;
 };
 typedef struct Size Size;
 
 struct Rect {
-	Point origin;
-	Size size;
+    Point origin;
+    Size size;
 };
 typedef struct Rect Rect;
 
 struct Color {
-	float r,g,b,a;
+    float r,g,b,a;
 };
 typedef struct Color Color;
 
@@ -88,138 +88,139 @@ static bool isMoving = false;
 
 static Rect makeRect(Point p1, Point p2)
 {
-	float x1 = fmin(p1.x, p2.x);
-	float y1 = fmin(p1.y, p2.y);
-	float x2 = fmax(p1.x, p2.x);
-	float y2 = fmax(p1.y, p2.y);
-	float w = fabs(x2-x1);
-	w = fmax(w, 1);
-	float h = fabs(y2-y1);
-	h = fmax(h, 1);
-	return (Rect){x1, y1, w, h};
+    float x1 = fmin(p1.x, p2.x);
+    float y1 = fmin(p1.y, p2.y);
+    float x2 = fmax(p1.x, p2.x);
+    float y2 = fmax(p1.y, p2.y);
+    float w = fabs(x2-x1);
+    w = fmax(w, 1);
+    float h = fabs(y2-y1);
+    h = fmax(h, 1);
+    return (Rect){x1, y1, w, h};
 }
 
 static inline float nextPow2(float val)
 {
-	return fmax(2, powf(2, ceilf(log2f(val))));
+    return fmax(2, powf(2, ceilf(log2f(val))));
 }
 
 static Rect makeRegion(Point p1, Point p2)
 {
-	Rect r = makeRect(p1, p2);
-	float val = fmax(r.size.width, r.size.height);
-	r.size.height = r.size.width = nextPow2(val);
-	return r;
+    Rect r = makeRect(p1, p2);
+    float val = fmax(r.size.width, r.size.height);
+    r.size.height = r.size.width = nextPow2(val);
+    return r;
 }
 
 static Rect makeRegionBounded(Point p1, Point p2)
 {
-	Rect r = makeRegion(p1, p2);
+    Rect r = makeRegion(p1, p2);
 
-	float extra_w = (r.size.width + r.origin.x) - canvasRect.size.width;
-	extra_w = fmax(extra_w, 0);
-	float extra_h = (r.size.height + r.origin.y) - canvasRect.size.height;
-	extra_h = fmax(extra_h, 0);
+    float extra_w = (r.size.width + r.origin.x) - canvasRect.size.width;
+    extra_w = fmax(extra_w, 0);
+    float extra_h = (r.size.height + r.origin.y) - canvasRect.size.height;
+    extra_h = fmax(extra_h, 0);
 
-	r.origin.x -= extra_w;
-	r.origin.y -= extra_h;
+    r.origin.x -= extra_w;
+    r.origin.y -= extra_h;
 
-	return r;
+    return r;
 }
 
 static inline int canvasIndex(float x, float y)
 {
     int i = (int)(COLOR_COMPS)*(int)(WIDTH*y + x);
     //printf("(canvas index) x: %f y: %f i: %d\n", x, y, i);
-	return i;
+    return i;
 }
 
 static void scale(GLfloat * matrix, float scale)
 {
-	matrix[0] = scale;
-	matrix[5] = scale;
-	matrix[10] = scale;
+    matrix[0] = scale;
+    matrix[5] = scale;
+    matrix[10] = scale;
 }
 
 static void move(GLfloat * matrix, float x, float y)
 {
-	matrix[12] = x;
-	matrix[13] = y;
+    matrix[12] = x;
+    matrix[13] = y;
 }
 
 static void identity(GLfloat * matrix)
 {
-	GLfloat I[16] = {1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1};
-	memcpy(matrix, I, sizeof(GLfloat)*16);
+    GLfloat I[16] = {1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1};
+    memcpy(matrix, I, sizeof(GLfloat)*16);
 }
 
 static void init()
 {
-	canvas = malloc(sizeof(GLfloat)*CANVAS_DIMS);
+    canvas = malloc(sizeof(GLfloat)*CANVAS_DIMS);
 
-	for(int i = 0; i < CANVAS_DIMS; ++i) {
-		canvas[i] = 0.5f;
-	}
+    for(int i = 0; i < CANVAS_DIMS; ++i) {
+        canvas[i] = 0.5f;
+    }
 
-	//setup scale amount
-	float ratioWidth = WINDOW_WIDTH > WIDTH ? (float)WIDTH/WINDOW_WIDTH : (float)WINDOW_WIDTH/WIDTH;
-	float ratioHeight = WINDOW_HEIGHT > HEIGHT ? (float)HEIGHT/WINDOW_HEIGHT : (float)WINDOW_HEIGHT/HEIGHT;
-	float ratio = ratioHeight < ratioWidth ? ratioHeight : ratioWidth;
-	scaleAmt = 0.8*ratio;
+    //setup scale amount
+    float ratioWidth = WINDOW_WIDTH > WIDTH ? (float)WIDTH/WINDOW_WIDTH : (float)WINDOW_WIDTH/WIDTH;
+    float ratioHeight = WINDOW_HEIGHT > HEIGHT ? (float)HEIGHT/WINDOW_HEIGHT : (float)WINDOW_HEIGHT/HEIGHT;
+    float ratio = ratioHeight < ratioWidth ? ratioHeight : ratioWidth;
+    scaleAmt = 0.8*ratio;
 }
 
 static void updateCanvas(Rect r)
 {
-	int i = canvasIndex(r.origin.x, r.origin.y);
-	glBindTexture(GL_TEXTURE_2D, tex);
-	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-	glPixelStorei(GL_UNPACK_ROW_LENGTH, canvasRect.size.width);
-	glTexSubImage2D(GL_TEXTURE_2D, 0, r.origin.x, r.origin.y, r.size.width, r.size.height, GL_RGB, GL_FLOAT, &canvas[i]);
+    int i = canvasIndex(r.origin.x, r.origin.y);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, canvasRect.size.width);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, r.origin.x, r.origin.y, r.size.width, r.size.height, GL_RGB, GL_FLOAT, &canvas[i]);
 }
 
 static Point screenToCanvas(Point screenPoint)
 {
-	double s = 1.0/scaleAmt;
-	float canvasX = (int)(s*(screenPoint.x - canvasRect.origin.x));
-	float canvasY = (int)(s*(screenPoint.y - canvasRect.origin.y));
-	return (Point){canvasX, canvasY};
+    double s = 1.0/scaleAmt;
+    float canvasX = (int)(s*((double)screenPoint.x - (double)canvasRect.origin.x));
+    float canvasY = (int)(s*((double)screenPoint.y - (double)canvasRect.origin.y));
+    return (Point){canvasX, canvasY};
 }
 
 static Point screenToCanvasBounded(Point screenPoint)
 {
-	Point p = screenToCanvas(screenPoint);
+    Point p = screenToCanvas(screenPoint);
 
-	float canvasX = p.x < WIDTH ? p.x : WIDTH-1;
-	canvasX = canvasX > 0 ? canvasX : 0;
-	float canvasY = p.y < HEIGHT ? p.y : HEIGHT-1;
-	canvasY = canvasY > 0 ? canvasY : 0;
+    float canvasX = p.x < WIDTH ? p.x : WIDTH-1;
+    canvasX = canvasX > 0 ? canvasX : 0;
+    float canvasY = p.y < HEIGHT ? p.y : HEIGHT-1;
+    canvasY = canvasY > 0 ? canvasY : 0;
 
-	return (Point){canvasX, canvasY};
+    return (Point){canvasX, canvasY};
 }
 
 static bool isInCanvas(float xpos, float ypos)
 {
-	Point p = screenToCanvas((Point){xpos, ypos});
-	return p.x > 0 && p.x < WIDTH && p.y > 0 && p.y < HEIGHT;
+    Point p = screenToCanvas((Point){xpos, ypos});
+    return p.x > 0 && p.x < WIDTH && p.y > 0 && p.y < HEIGHT;
 }
 
 static void placePoint(Point p, Color c)
 {
-	int i = canvasIndex(p.x, p.y);
-	canvas[i+R_COMP] = c.r;
-	canvas[i+G_COMP] = c.g;
-	canvas[i+B_COMP] = c.b;
-	//canvas[i+A_COMP] = c.a;
-	//TODO: figure out how to handle Alpha
+    int i = canvasIndex(p.x, p.y);
+    canvas[i+R_COMP] = c.r;
+    canvas[i+G_COMP] = c.g;
+    canvas[i+B_COMP] = c.b;
+    //canvas[i+A_COMP] = c.a;
+    //TODO: figure out how to handle Alpha
 }
 
 static void placeRect(Rect r, Color c)
 {
-	for(int x = r.origin.x; x < r.origin.x + r.size.width; ++x) {
-		for(int y = r.origin.y; y < r.origin.y + r.size.height; ++y) {
-			placePoint((Point){x, y}, c);
-		}
-	}
+    for(int x = r.origin.x; x < r.origin.x + r.size.width; ++x) {
+        for(int y = r.origin.y; y < r.origin.y + r.size.height; ++y) {
+            placePoint((Point){x, y}, c);
+        }
+    }
 }
 
 static float firstDrawX = -1.0f;
@@ -227,35 +228,35 @@ static float firstDrawY = -1.0f;
 
 static void draw(float xpos, float ypos)
 {
-	Color color = { 1.0f, 1.0f, 1.0f, 1.0f};
+    Color color = { 1.0f, 1.0f, 1.0f, 1.0f};
 
-	Point oldPoint = screenToCanvasBounded((Point){firstDrawX, firstDrawY});
-	Point newPoint = screenToCanvasBounded((Point){xpos, ypos});
+    Point oldPoint = screenToCanvasBounded((Point){firstDrawX, firstDrawY});
+    Point newPoint = screenToCanvasBounded((Point){xpos, ypos});
 
-	Rect dirtyRegion = makeRegionBounded(oldPoint, newPoint);
-	//placeRect(dirtyRegion, color);
-	placePoint(newPoint, color);
-	updateCanvas(dirtyRegion);
-	//printf("dirtyRegion: %f %f %f %f\n", dirtyRegion.origin.x, dirtyRegion.origin.y, dirtyRegion.size.width, dirtyRegion.size.height);
-	//updateCanvas((Rect){newPoint.x, newPoint.y, 10, 10});
-	//updateCanvas((Rect){0, 0, WIDTH, HEIGHT});
+    Rect dirtyRegion = makeRegionBounded(oldPoint, newPoint);
+    //placeRect(dirtyRegion, color);
+    placePoint(newPoint, color);
+    updateCanvas(dirtyRegion);
+    //printf("dirtyRegion: %f %f %f %f\n", dirtyRegion.origin.x, dirtyRegion.origin.y, dirtyRegion.size.width, dirtyRegion.size.height);
+    //updateCanvas((Rect){newPoint.x, newPoint.y, 10, 10});
+    //updateCanvas((Rect){0, 0, WIDTH, HEIGHT});
 
-	firstDrawX = xpos;
-	firstDrawY = ypos;
+    firstDrawX = xpos;
+    firstDrawY = ypos;
 }
 
 static void beginDraw(float xpos, float ypos)
 {
-	firstDrawX = xpos;
-	firstDrawY = ypos;
+    firstDrawX = xpos;
+    firstDrawY = ypos;
 
-	if((isDrawing = isInCanvas(xpos, ypos)))
-		draw(xpos, ypos);
+    if((isDrawing = isInCanvas(xpos, ypos)))
+        draw(xpos, ypos);
 }
 
 static void endDraw(float xpos, float ypos)
 {
-	isDrawing = false;
+    isDrawing = false;
 }
 
 static float firstX = -1.0f;
@@ -263,104 +264,115 @@ static float firstY = -1.0f;
 
 static void moveCanvas(float xpos, float ypos)
 {
-	canvasRect.origin.x += xpos - firstX;
-	canvasRect.origin.y += ypos - firstY;
-	firstX = xpos;
-	firstY = ypos;
-	move(matrix, canvasRect.origin.x, canvasRect.origin.y);
-	glUniformMatrix4fv(transformLoc, 1, false, matrix);
+    canvasRect.origin.x += xpos - firstX;
+    canvasRect.origin.y += ypos - firstY;
+    firstX = xpos;
+    firstY = ypos;
+    move(matrix, canvasRect.origin.x, canvasRect.origin.y);
+    glUniformMatrix4fv(transformLoc, 1, false, matrix);
 }
 
 static void beginMoveCanvas(float xpos, float ypos)
 {
-	isMoving = hasMoveToolSelected;
-	firstX = xpos;
-	firstY = ypos;
+    isMoving = hasMoveToolSelected;
+    firstX = xpos;
+    firstY = ypos;
 }
 
 static void endMoveCanvas(float xpos, float ypos)
 {
-	isMoving = false;
+    isMoving = false;
 }
 
 static void destroy() {
-	free(canvas);
+    free(canvas);
 }
 
 static void error_callback(int error, const char* description)
 {
-	fputs(description, stderr);
+    fputs(description, stderr);
 }
 
 static void onKey(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-	if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-		glfwSetWindowShouldClose(window, GL_TRUE);
-	else if(key == GLFW_KEY_SPACE)
-		hasMoveToolSelected = (action != GLFW_RELEASE);
+    if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, GL_TRUE);
+    else if(key == GLFW_KEY_SPACE)
+        hasMoveToolSelected = (action != GLFW_RELEASE);
 }
 
 static void onMouseButton(GLFWwindow * window, int button, int action, int mods)
 {
-	if(button == GLFW_MOUSE_BUTTON_LEFT)
-	{
-		double xpos, ypos;
-		glfwGetCursorPos(window, &xpos, &ypos);
+    double xpos, ypos;
+    glfwGetCursorPos(window, &xpos, &ypos);
 
-		hasDrawingToolSelected = !hasMoveToolSelected;
+    if(button == GLFW_MOUSE_BUTTON_LEFT)
+    {
+        hasDrawingToolSelected = !hasMoveToolSelected;
 
-		if(action == GLFW_PRESS) {
-			if(hasMoveToolSelected) {
-				beginMoveCanvas(xpos, ypos);
-			} else if(hasDrawingToolSelected) {
-				beginDraw(xpos, ypos);
-			}
-		} else if(action == GLFW_RELEASE) {
-			if(isMoving) {
-				endMoveCanvas(xpos, ypos);
-			} else if(isDrawing) {
-				endDraw(xpos, ypos);
-			}
-		}
-	} 
-	else if(button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE)
-	{
-		scaleAmt *= (mods & GLFW_MOD_SHIFT ? 0.8 : 1.2);
-		scale(matrix, scaleAmt);
-		glUniformMatrix4fv(transformLoc, 1, false, matrix);
-	}
+        if(action == GLFW_PRESS) {
+            if(hasMoveToolSelected) {
+                beginMoveCanvas(xpos, ypos);
+            } else if(hasDrawingToolSelected) {
+                beginDraw(xpos, ypos);
+            }
+        } else if(action == GLFW_RELEASE) {
+            if(isMoving) {
+                endMoveCanvas(xpos, ypos);
+            } else if(isDrawing) {
+                endDraw(xpos, ypos);
+            }
+        }
+    } 
+    else if(button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE)
+    {
+        Point before = screenToCanvas((Point){xpos, ypos});
+        printf("before: (%f, %f) ", before.x, before.y);
+        scaleAmt *= (mods & GLFW_MOD_SHIFT ? 0.8 : 1.2);
+        scale(matrix, scaleAmt);
+        glUniformMatrix4fv(transformLoc, 1, false, matrix);
+        Point after = screenToCanvas((Point){xpos, ypos});
+        printf("after: (%f, %f)\n", after.x, after.y);
+
+        float deltaX = scaleAmt*(after.x - before.x);
+        canvasRect.origin.x += deltaX;
+        float deltaY = scaleAmt*(after.y - before.y);
+        canvasRect.origin.y += deltaY;
+        move(matrix, canvasRect.origin.x, canvasRect.origin.y);
+        glUniformMatrix4fv(transformLoc, 1, false, matrix);
+    }
 }
 
 static void onMouseMove(GLFWwindow * window, double xpos, double ypos)
 {
-	if(isDrawing)
-		draw(xpos, ypos);
-	else if(isMoving)
-		moveCanvas(xpos, ypos);
+    if(isDrawing)
+        draw(xpos, ypos);
+    else if(isMoving)
+        moveCanvas(xpos, ypos);
 }
 
 int main(void)
 {
-	glfwSetErrorCallback(error_callback);
+    glfwSetErrorCallback(error_callback);
 
-	init();
+    init();
 
-	glfwInit();
+    glfwInit();
 
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
-	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
+    glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
-	window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Drawing App", NULL, NULL);
-	glfwMakeContextCurrent(window);
+    window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Drawing App", NULL, NULL);
+    glfwMakeContextCurrent(window);
 
-	glewExperimental = GL_TRUE;
-	glewInit();
+    glewExperimental = GL_TRUE;
+    glewInit();
 
-	// Create Vertex Array Object
+    // Create Vertex Array Object
     GLuint vao;
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
@@ -434,9 +446,9 @@ int main(void)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 
     float color[] = { 1.0f, 0.0f, 0.0f, 1.0f };
-	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, color);
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, color);
 
-	projectionLoc = glGetUniformLocation(shaderProgram, "projection");
+    projectionLoc = glGetUniformLocation(shaderProgram, "projection");
     {
         GLfloat left = 0.0f;
         GLfloat right = WINDOW_WIDTH;
@@ -455,27 +467,27 @@ int main(void)
     scale(matrix, scaleAmt);
     glUniformMatrix4fv(transformLoc, 1, false, matrix);
 
-	glBindTexture(GL_TEXTURE_2D, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
 
-	glfwSetKeyCallback(window, onKey);
-	glfwSetMouseButtonCallback(window, onMouseButton);
-	glfwSetCursorPosCallback(window, onMouseMove);
+    glfwSetKeyCallback(window, onKey);
+    glfwSetMouseButtonCallback(window, onMouseButton);
+    glfwSetCursorPosCallback(window, onMouseMove);
 
-	while(!glfwWindowShouldClose(window))
-	{
-		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
+    while(!glfwWindowShouldClose(window))
+    {
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
 
-		glActiveTexture(GL_TEXTURE0);
-  		glBindTexture(GL_TEXTURE_2D, tex);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, tex);
 
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
-		glfwSwapBuffers(window);
-		glfwPollEvents();
-	}
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
 
-	glDeleteProgram(shaderProgram);
+    glDeleteProgram(shaderProgram);
     glDeleteShader(fragmentShader);
     glDeleteShader(vertexShader);
 
@@ -486,10 +498,10 @@ int main(void)
 
     glDeleteVertexArrays(1, &vao);
 
-	glfwDestroyWindow(window);
-	glfwTerminate();
+    glfwDestroyWindow(window);
+    glfwTerminate();
 
-	destroy();
+    destroy();
 
-	exit(EXIT_SUCCESS);
+    exit(EXIT_SUCCESS);
 }
